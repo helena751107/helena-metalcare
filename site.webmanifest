@@ -1,8 +1,8 @@
 {
   "id": "/helena-psycare/",
-  "name": "Helena PsyCare",
+  "name": "Helena PsyCare · 돌봄",
   "short_name": "PsyCare",
-  "description": "심리·돌봄 트랙. 트랙 1(돌봄)과 맞닿은 커뮤니티·기록 공간.",
+  "description": "심리·돌봄 트랙. 트랙1 안전망 · 마음 · 기록 · 공동체. 의료 상담이 아닙니다.",
   "lang": "ko",
   "dir": "ltr",
   "start_url": "/helena-psycare/",
@@ -17,9 +17,9 @@
   "background_color": "#0a0908",
   "theme_color": "#0a0908",
   "categories": [
-    "productivity",
-    "education",
-    "utilities"
+    "health",
+    "lifestyle",
+    "social"
   ],
   "prefer_related_applications": false,
   "icons": [
