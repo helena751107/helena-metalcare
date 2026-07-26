@@ -1,23 +1,57 @@
 {
+  "id": "/helena-psycare/",
   "name": "Helena PsyCare",
-  "short_name": "Helena",
+  "short_name": "PsyCare",
   "description": "심리·돌봄 트랙. 트랙 1(돌봄)과 맞닿은 커뮤니티·기록 공간.",
+  "lang": "ko",
+  "dir": "ltr",
   "start_url": "/helena-psycare/",
   "scope": "/helena-psycare/",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
+  "orientation": "any",
   "background_color": "#0a0908",
   "theme_color": "#0a0908",
-  "lang": "ko",
+  "categories": [
+    "productivity",
+    "education",
+    "utilities"
+  ],
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "https://helena751107.github.io/helena_phone/icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "src": "/helena-psycare/icons/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "https://helena751107.github.io/helena_phone/icons/icon-512.png",
+      "src": "/helena-psycare/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/helena-psycare/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/helena-psycare/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/helena-psycare/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }
