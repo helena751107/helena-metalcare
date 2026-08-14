@@ -1,12 +1,12 @@
 {
-  "id": "/helena-psycare/",
-  "name": "Helena PsyCare · 돌봄",
-  "short_name": "PsyCare",
+  "id": "/helena-metalcare/",
+  "name": "Helena MetalCare · 돌봄",
+  "short_name": "MetalCare",
   "description": "심리·돌봄 트랙. 트랙1 안전망 · 마음 · 기록 · 공동체. 의료 상담이 아닙니다.",
   "lang": "ko",
   "dir": "ltr",
-  "start_url": "/helena-psycare/",
-  "scope": "/helena-psycare/",
+  "start_url": "/helena-metalcare/",
+  "scope": "/helena-metalcare/",
   "display": "standalone",
   "display_override": [
     "standalone",
@@ -24,31 +24,31 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/helena-psycare/icons/favicon-32.png",
+      "src": "/helena-metalcare/icons/favicon-32.png",
       "sizes": "32x32",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/helena-psycare/icons/icon-192.png",
+      "src": "/helena-metalcare/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/helena-psycare/icons/icon-512.png",
+      "src": "/helena-metalcare/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/helena-psycare/icons/icon-maskable-512.png",
+      "src": "/helena-metalcare/icons/icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/helena-psycare/icons/icon.svg",
+      "src": "/helena-metalcare/icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

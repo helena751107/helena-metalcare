@@ -16,7 +16,7 @@ jobs:
           mkdir -p 기자
           python3 << 'PYEOF'
           import os, hashlib, urllib.request, xml.etree.ElementTree as ET
-          blog = "helena-psycare"
+          blog = "helena-metalcare"
           out_dir = "기자"
           rss_url = f"https://{blog}.tistory.com/rss"
           print(f"📡 {rss_url}")
