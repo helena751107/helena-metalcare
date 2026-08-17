@@ -4,6 +4,8 @@
 > "MetalCare" is a kept typo of "MentalCare" — care with the strength of metal:
 > voices as audio, medication, a doctor's counsel, a patient's script.
 >
+> Part of the [**Helena Content Foundry**](https://github.com/helena751107/helena_phone) — mobile-first, MCP-verified.
+>
 > _Korean below = the full worked example._
 
 ---
