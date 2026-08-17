@@ -1,5 +1,7 @@
 # Helena MetalCare — truly knowing my sister
 
+![Helena MetalCare — care with the strength of metal](assets/social-preview.jpg)
+
 > A record of getting to truly know my sister's schizophrenia before I die.
 > "MetalCare" is a kept typo of "MentalCare" — care with the strength of metal:
 > voices as audio, medication, a doctor's counsel, a patient's script.
