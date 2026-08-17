@@ -1,3 +1,13 @@
+# Helena MetalCare — truly knowing my sister
+
+> A record of getting to truly know my sister's schizophrenia before I die.
+> "MetalCare" is a kept typo of "MentalCare" — care with the strength of metal:
+> voices as audio, medication, a doctor's counsel, a patient's script.
+>
+> _Korean below = the full worked example._
+
+---
+
 # Helena MetalCare — 누나를 진짜로 알아가는 과정
 
 > **조현병.** 누나가 평생 안고 산 병을, 내가 죽기 전에 진짜로 알아가려는 기록.
