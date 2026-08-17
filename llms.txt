@@ -1,0 +1,7 @@
+# Helena MetalCare — getting to know a sister's schizophrenia
+
+> Knowing schizophrenia by walking alongside it — voices as audio, medication analysis, a doctor's counsel. Part of the Helena care track. Not medical advice.
+
+- [Repository](https://github.com/helena751107/helena-metalcare)
+- [Live site (Korean)](https://helena751107.github.io/helena-metalcare/)
+- [README](https://github.com/helena751107/helena-metalcare#readme)
