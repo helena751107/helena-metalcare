@@ -1,9 +1,9 @@
 {
   "id": "/helena-metalcare/",
-  "name": "Helena MetalCare · 돌봄",
+  "name": "Helena MetalCare · Care",
   "short_name": "MetalCare",
-  "description": "심리·돌봄 트랙. 트랙1 안전망 · 마음 · 기록 · 공동체. 의료 상담이 아닙니다.",
-  "lang": "ko",
+  "description": "A psychological care track. Track 1 safety net · mind · record · community. This is not medical advice.",
+  "lang": "en",
   "dir": "ltr",
   "start_url": "/helena-metalcare/",
   "scope": "/helena-metalcare/",
