@@ -155,6 +155,10 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:none}
 .cover-stats .v{font-family:var(--serif);font-size:clamp(1.5rem,3vw,2.1rem);font-weight:700;color:var(--coral-bright);line-height:1}
 .cover-stats .l{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-mute);margin-top:8px}
 
+.hero-shot{position:relative;margin:36px 0 0;border:1px solid var(--rule-strong);overflow:hidden;background:var(--paper-2)}
+.hero-shot img{width:100%;height:auto;display:block;filter:saturate(1.05) contrast(1.03)}
+.hero-shot .cap{position:absolute;left:14px;bottom:14px;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);background:rgba(10,9,8,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:7px 11px;border:1px solid rgba(244,239,230,.15)}
+
 .marquee-wrap{overflow:hidden;border-block:1px solid var(--rule);background:var(--paper-2);padding:14px 0}
 .marquee{display:flex;width:max-content;animation:marquee 44s linear infinite;font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-mute);font-weight:500}
 .marquee span{padding:0 28px;white-space:nowrap}
@@ -421,6 +425,10 @@ section.chapter.acc .acc-panel.open > .acc-inner{opacity:1;padding-bottom:clamp(
       <div class="s"><div class="v" data-count="5">0</div><div class="l">Steps</div></div>
       <div class="s"><div class="v" data-count="0">0</div><div class="l">Break</div></div>
       <div class="s"><div class="v" data-count="0">0</div><div class="l">SW</div></div>
+    </div>
+    <div class="hero-shot reveal">
+      <img src="assets/hero-web.jpg" alt="Two hands gently cradling a glowing phone in warm golden light against the dark — a quiet symbol of steady, patient care." width="1600" height="800" loading="eager">
+      <div class="cap">Helena MetalCare · So It Doesn't Break</div>
     </div>
   </div>
 </section>
