@@ -6,7 +6,7 @@
   position: fixed;
   left: max(18px, calc(env(safe-area-inset-left, 0px) + 14px));
   bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 16px));
-  z-index: 170;
+  z-index: 420;
   font-family: var(--sans);
   color: var(--ink);
   line-height: 1.5;

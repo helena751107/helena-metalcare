@@ -109,6 +109,9 @@ TOOLS['care.status'] = {
       progress: max > 0 ? Math.round((scrollY / max) * 100) : 0,
       chapters: sections().filter((s) => s.chapter).map((s) => ({ id: s.id, open: s.open })),
       methodStep: $$('.m-step').findIndex((el) => el.classList.contains('active')),
+      mode: document.documentElement.getAttribute('data-onto') === 'on' ? 'ontology' : 'reader',
+      ontology: !!ONTO,
+      backend: ONTO?.state?.().backend || null,
       transport: API?.registered || 'none',
       tools: Object.keys(API?.tools || {}).length,
       note: NOTE
@@ -125,9 +128,13 @@ TOOLS['care.sections'] = {
 TOOLS['care.open'] = {
   description: 'Open a chapter (accordion) and scroll to it. Accepts id ("method"), number ("03"), or words ("levels").',
   inputSchema: { type: 'object', properties: { section: { type: 'string', description: 'method | map | 03 | levels …' } }, required: ['section'] },
-  execute: ({ section }) => {
+  execute: async ({ section }) => {
     const sec = resolveSection(section);
     if (!sec) throw new Error(`section not found: ${section} (try ${allSections().map((s) => s.id).join(', ')})`);
+    if (document.documentElement.getAttribute('data-onto') === 'on') {
+      const r = await ontoCall('exit', { section: sec.id });
+      return { opened: metaOf(sec), via: r.mode };
+    }
     return { opened: openSection(sec) };
   }
 };
@@ -343,6 +350,51 @@ TOOLS['care.spot'] = {
   }
 };
 
+/* ---------- ontology (WebGPU dashboard layer) ---------- */
+let ONTO = null;
+let ontoLoading = null;
+
+function loadOnto() {
+  if (ONTO) return Promise.resolve(ONTO);
+  if (!ontoLoading) {
+    ontoLoading = import('../ontoviz/onto.js')
+      .then((m) => m.initOnto())
+      .then((c) => { ONTO = c; return c; })
+      .catch((e) => { console.warn('[webmcp] ontology unavailable:', e && e.message); return null; });
+  }
+  return ontoLoading;
+}
+
+async function ontoCall(name, input) {
+  const c = await loadOnto();
+  if (!c) throw new Error('ontology unavailable — WebGPU/WebGL2 could not start; the text webzine still works');
+  return c[name](input || {});
+}
+
+const ONTO_TOOLS = {
+  'onto.enter': ['Open the ontology dashboard at a chapter. The landing page becomes a 3D care graph on WebGPU.', { section: { type: 'string' } }],
+  'onto.exit': ['Leave the graph and open the readable webzine at the same chapter.', { section: { type: 'string' } }],
+  'onto.focus': ['Focus a node (id or words) or a chapter. Selects it, opens the inspector, flies the camera.', { target: { type: 'string' } }],
+  'onto.filter': ['Dim everything that is not this class: all | care | crisis | lanes | boundary.', { mode: { type: 'string' } }],
+  'onto.search': ['Search labels, classes and evidence; highlights every match on the graph.', { q: { type: 'string' } }],
+  'onto.camera': ['Move the camera: preset (overview | chapter id), or explicit x/y/z and lookX/lookY/lookZ.', { preset: { type: 'string' }, x: { type: 'number' }, y: { type: 'number' }, z: { type: 'number' }, lookX: { type: 'number' }, lookY: { type: 'number' }, lookZ: { type: 'number' } }],
+  'onto.pause': ['Pause the graph animation loop without leaving the page.', {}],
+  'onto.resume': ['Resume the graph animation loop.', {}],
+  'onto.renderAt': ['Freeze one deterministic frame at t (0..1) — chapter index and fixed clock. For capture.', { t: { type: 'number' } }],
+  'onto.state': ['Where the dashboard is: section, backend, counts, filter, query, selection, paused, fps.', {}],
+  'onto.sections': ['The eight chapters of the ontology with their ids.', {}],
+  'onto.nodes': ['Every entity: id, label, class, source chapter.', {}],
+  'onto.relations': ['Every edge: source, target, relation type.', {}],
+  'onto.stats': ['Counts and the live renderer backend (WebGPU or WebGL2 fallback).', {}]
+};
+Object.entries(ONTO_TOOLS).forEach(([name, [description, props]]) => {
+  TOOLS[name] = {
+    description,
+    inputSchema: { type: 'object', properties: props },
+    execute: (input) => ontoCall(name.split('.')[1], input)
+  };
+});
+
 function spotElement(el, ms) {
   if (!el) return;
   el.classList.add('wmcp-spot');
@@ -354,7 +406,7 @@ function spotElement(el, ms) {
 /* ---------- install ---------- */
 API = installWebMCP({
   name: 'helena-metalcare',
-  description: 'Helena MetalCare — a care webzine for getting to know a sister\'s schizophrenia. Read chapters, open the care loop, check levels, point at the safety map. ' + NOTE,
+  description: 'Helena MetalCare — a care webzine for getting to know a sister\'s schizophrenia, staged as a WebGPU ontology dashboard: 36 care entities, 81 relations, every node traceable to a chapter. Explore the graph, focus nodes, filter classes, or drop to the readable text. ' + NOTE,
   tools: TOOLS,
   state: () => API?.tools['care.status'].execute()
 });
@@ -370,7 +422,13 @@ const EXAMPLES = {
   'care.read': { section: 'method', max: 1200 },
   'care.spot': { target: '#method', ms: 1800 },
   'care.method': { step: 2 },
-  'care.theme': { mode: 'toggle' }
+  'care.theme': { mode: 'toggle' },
+  'onto.enter': { section: 'method' },
+  'onto.focus': { target: 'Emergency' },
+  'onto.filter': { mode: 'crisis' },
+  'onto.search': { q: 'record' },
+  'onto.camera': { preset: 'overview' },
+  'onto.renderAt': { t: 0.5 }
 };
 
 function exampleFor(tool) {
@@ -390,6 +448,13 @@ function exampleFor(tool) {
     else if (k === 'max') out[k] = 1200;
     else if (k === 'open') out[k] = false;
     else if (k === 'all') out[k] = true;
+    else if (k === 'station') out[k] = 'method';
+    else if (k === 't') out[k] = 0.5;
+    else if (k === 'dwell') out[k] = 1.5;
+    else if (k === 'quality') out[k] = 'high';
+    else if (k === 'particles') out[k] = true;
+    else if (k === 'letterbox') out[k] = true;
+    else if (k === 'tour') out[k] = false;
   });
   return out;
 }
@@ -581,3 +646,4 @@ function buildDock() {
 }
 
 buildDock();
+loadOnto();

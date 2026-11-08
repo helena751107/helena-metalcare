@@ -17,6 +17,8 @@
 
 ## 파일 구조
 - `index.html` = 랜딩 페이지 (루트)
+- `mcp/` = Web MCP 브리지 (`window.__webmcp`, care.* · onto.* 도구)
+- `ontoviz/` = WebGPU 온톨로지 3D 레이어 — three.js WebGPURenderer + TSL, WebGL2 폴백(`?gl=1`), 모든 패널은 캔버스 텍스처 평면
 - `docs/` = 기획/설계
 - `data/` = JSON 저장소
 - `scripts/` = 자동화 스크립트
