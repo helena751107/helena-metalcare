@@ -53,8 +53,8 @@ export async function initOnto(opts = {}) {
   const startReader = params.has('text') || params.get('mode') === 'reader' || localStorage.getItem(MODE_KEY) === 'reader';
   const narrow = innerWidth / innerHeight < 0.9;
   const DIM = narrow
-    ? { ch: [240, 474], dash: [250, 461], intro: [280, 368], ins: [260, 335], bar: [250, 92] }
-    : { ch: [300, 340], dash: [330, 345], intro: [560, 332], ins: [320, 235], bar: [360, 65] };
+    ? { ch: [240, 474], dash: [240, 442], intro: [280, 368], ins: [240, 310], bar: [240, 88.5] }
+    : { ch: [320, 340], dash: [320, 335], intro: [560, 367.5], ins: [320, 235], bar: [320, 57.6] };
   const stationH = {};
   const dimOfStation = (i) => (i === 0 ? DIM.dash : [DIM.ch[0], stationH[i] || DIM.ch[1]]);
   const barYFor = (i) => 90 - dimOfStation(i)[1] / 2 - 14 - DIM.bar[1] / 2;
@@ -83,6 +83,15 @@ export async function initOnto(opts = {}) {
   const glHost = root.querySelector('#ontoGl');
   const scrollEl = root.querySelector('.ov-scroll');
   scrollEl.style.height = `${SECTIONS.length * 100}vh`;
+
+  /* One station = the real pixel height of the scroll surface. Using this
+     instead of innerHeight keeps the station grid steady when a phone's URL
+     bar slides away and innerHeight changes under us. */
+  const stepPx = () => {
+    const h = scrollEl.getBoundingClientRect().height / SECTIONS.length;
+    return h > 10 ? h : Math.max(1, innerHeight);
+  };
+  const stationY = (i) => Math.round(i * stepPx());
 
   /* ── ontology layout → station coordinates ─────────────────────── */
   const P = layoutPositions(sections);
@@ -207,55 +216,100 @@ export async function initOnto(opts = {}) {
   /* ── camera stations ──────────────────────────────────────────── */
   let current = -1, selected = null, introOn = false, paused = false;
 
-  function frameFor(i) {
+  /* One distance for every station: the reader never gets re-scaled when the
+     card changes. The column just slides, like pages in a frame. */
+  let frameD = 0;
+  function computeFrameD() {
     const aspect = Math.max(0.3, innerWidth / innerHeight);
-    const fov = camera.fov || 42;
-    const tan = Math.tan((fov * Math.PI) / 360);
-    const [w, h] = dimOfStation(i);
-    const barY = barYFor(i), barH = DIM.bar[1];
-    const top = 90 + h / 2 + 8, bottom = barY - barH / 2 - 8;
-    const lookY = (top + bottom) / 2;
-    const d = Math.max(((top - bottom) / (2 * tan)) * 1.02, (w * (narrow ? 1.03 : 1.14)) / (2 * tan * aspect), 300);
-    const off = aspect < 0.85 ? 0 : (i % 2 ? 1 : -1) * Math.min(55, d * 0.05);
-    return { pos: { x: off, y: lookY + d * 0.02, z: zOf(i) + d }, look: { x: 0, y: lookY, z: zOf(i) } };
+    const tan = Math.tan(((camera.fov || 42) * Math.PI) / 360);
+    let d = 300;
+    for (let i = 0; i < SECTIONS.length; i++) {
+      const [w, h] = dimOfStation(i);
+      const top = 90 + h / 2 + 8, bottom = barYFor(i) - DIM.bar[1] / 2 - 8;
+      d = Math.max(d, ((top - bottom) / (2 * tan)) * (narrow ? 1.07 : 1.02), (w * (narrow ? 1.08 : 1.14)) / (2 * tan * aspect));
+    }
+    frameD = d;
   }
 
+  function frameFor(i) {
+    const fov = camera.fov || 42;
+    const tan = Math.tan((fov * Math.PI) / 360);
+    const h = dimOfStation(i)[1];
+    const top = 90 + h / 2 + 8, bottom = barYFor(i) - DIM.bar[1] / 2 - 8;
+    const lookY = (top + bottom) / 2;
+    const d = frameD || 900;
+    return { pos: { x: 0, y: lookY + d * 0.02, z: zOf(i) + d }, look: { x: 0, y: lookY, z: zOf(i) } };
+  }
+
+  let barShown = -1;
   function updateBar(i) {
-    setTexture(barMesh, barTexture({ current: i, label: i === 0 ? 'Cover' : sections[i].label, narrow }));
+    if (barShown !== i) {
+      barShown = i;
+      setTexture(barMesh, barTexture({ current: i, label: i === 0 ? 'Cover' : sections[i].label, narrow }));
+    }
     barMesh.position.set(0, barYFor(i), zOf(i));
     barMesh.visible = true;
   }
 
-  function go(i, { instant = false } = {}) {
+  function panelOf(i) {
+    return i === 0 ? dashMesh : chapterMeshes[Math.max(0, i - 1)];
+  }
+
+  /* Arrive with a short fade-in only: no zoom, no slide, no camera tween. */
+  let fadeRaf = 0;
+  function arrive(mesh, to) {
+    if (!mesh) return;
+    cancelAnimationFrame(fadeRaf);
+    if (reduce) { mesh.material.opacity = to; return; }
+    const t0 = performance.now();
+    mesh.material.opacity = 0;
+    const step = () => {
+      const k = Math.min(1, (performance.now() - t0) / 130);
+      mesh.material.opacity = to * (0.25 + 0.75 * k);
+      if (k < 1) fadeRaf = requestAnimationFrame(step);
+      else mesh.material.opacity = to;
+    };
+    fadeRaf = requestAnimationFrame(step);
+  }
+
+  /* The camera never moves by itself. Scroll picks the station; the cut is
+     instant, so the scrollbar is always exactly where the reader left it. */
+  function reframe(i = current) {
+    if (i < 0) return;
+    const f = frameFor(i);
+    G.cameraPosition(f.pos, f.look, 0);
+    updateBar(i);
+    arrive(panelOf(i), selected ? 0.16 : 1);
+  }
+
+  function go(i) {
     hideHighlight();
     i = clamp(i, 0, SECTIONS.length - 1);
     if (i === current) return;
     current = i;
     deselect();
-    const f = frameFor(i);
-    G.cameraPosition(f.pos, f.look, instant || reduce ? 0 : 950);
-    updateBar(i);
+    reframe(i);
     try { history.replaceState(null, '', location.pathname + location.search + '#' + SECTIONS[i]); } catch (e) {}
   }
 
-  function fadeOut(mesh, ms, done) {
-    const t0 = performance.now(), o0 = mesh.material.opacity, s0 = mesh.scale.x;
-    mesh.userData.hotspots = [];
-    const step = () => {
-      const k = Math.min(1, (performance.now() - t0) / ms);
-      mesh.material.opacity = o0 * (1 - k);
-      mesh.scale.setScalar(s0 * (1 - 0.04 * k));
-      if (k < 1) requestAnimationFrame(step);
-      else { mesh.visible = false; done && done(); }
-    };
-    requestAnimationFrame(step);
+  /* Programmatic walking (dots, keys, hash, deep link). The scrollbar is moved
+     to the station so the reader's scroll position and the camera agree; the
+     echo of that scroll is ignored for a beat so a stale event can never
+     yank the camera back. */
+  let scrollMute = 0;
+  function jumpTo(i) {
+    window.scrollTo(0, stationY(i));
+    scrollMute = performance.now() + 260;
+    go(i);
   }
 
   function dismissIntro(keepScroll) {
     if (!introOn) return;
     introOn = false;
     try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {}
-    fadeOut(introMesh, reduce ? 0 : 620);
+    introMesh.visible = false;
+    introMesh.userData.hotspots = [];
+    barMesh.visible = true;
     if (!keepScroll) { window.scrollTo(0, 0); go(0); }
   }
 
@@ -346,8 +400,8 @@ export async function initOnto(opts = {}) {
   function doAction(a) {
     if (!a) return;
     if (a.type === 'enter') return dismissIntro(false);
-    if (a.type === 'station') { dismissIntro(false); window.scrollTo(0, a.i * innerHeight); go(a.i); return; }
-    if (a.type === 'goto') { const i = SECTIONS.indexOf(a.id); if (i >= 0) { window.scrollTo(0, i * innerHeight); go(i); } return; }
+    if (a.type === 'station') { dismissIntro(false); jumpTo(a.i); return; }
+    if (a.type === 'goto') { const i = SECTIONS.indexOf(a.id); if (i >= 0) jumpTo(i); return; }
     if (a.type === 'mode') return setMode(a.mode);
     if (a.type === 'node') { const n = byId.get(a.id); if (n) select(n); return; }
     if (a.type === 'reader') return enterReader(a.id || SECTIONS[Math.max(0, current)]);
@@ -367,7 +421,7 @@ export async function initOnto(opts = {}) {
     if (Math.hypot(dx, dy) > 8) {
       if (touch && Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.6) {
         const i = clamp((current < 0 ? 0 : current) + (dx < 0 ? 1 : -1), 0, SECTIONS.length - 1);
-        window.scrollTo(0, i * innerHeight); go(i);
+        jumpTo(i);
       }
       return;
     }
@@ -391,14 +445,28 @@ export async function initOnto(opts = {}) {
   canvas.addEventListener('pointerleave', hideHighlight);
 
   /* ── scroll · keys · resize ───────────────────────────────────── */
+  /* Scroll is the only authority. We read it and cut; we never write scrollY. */
   addEventListener('scroll', () => {
+    if (paused || performance.now() < scrollMute) return;
     if (introOn) {
-      if (scrollY > 24) { dismissIntro(true); go(clamp(Math.round(scrollY / innerHeight), 0, SECTIONS.length - 1)); }
-      return;
+      if (scrollY <= 24) return;
+      introOn = false;
+      try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {}
+      introMesh.visible = false;
+      introMesh.userData.hotspots = [];
+      barMesh.visible = true;
+      current = 0;
+      reframe(0);
     }
-    if (paused) return;
-    const i = clamp(Math.round(scrollY / innerHeight), 0, SECTIONS.length - 1);
-    if (i !== current) go(i);
+    /* Cut only when the reader has actually crossed into the next station.
+       The 3% past the midpoint keeps the boundary from flickering when a
+       trackpad coasts to a stop right on the line. */
+    const s = scrollY / stepPx();
+    const cur = current < 0 ? 0 : current;
+    if (s - cur > 0.53 || s - cur < -0.53) {
+      const i = clamp(Math.round(s), 0, SECTIONS.length - 1);
+      if (i !== cur) go(i);
+    }
   }, { passive: true });
 
   addEventListener('keydown', (e) => {
@@ -409,14 +477,14 @@ export async function initOnto(opts = {}) {
       e.preventDefault();
       if (introOn) { dismissIntro(false); return; }
       const n = clamp(i + 1, 0, SECTIONS.length - 1);
-      window.scrollTo(0, n * innerHeight); go(n);
+      jumpTo(n);
     } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
       e.preventDefault();
       if (introOn) { dismissIntro(false); return; }
       const n = clamp(i - 1, 0, SECTIONS.length - 1);
-      window.scrollTo(0, n * innerHeight); go(n);
+      jumpTo(n);
     } else if (e.key === 'Home') { e.preventDefault(); dismissIntro(false); window.scrollTo(0, 0); go(0); }
-    else if (e.key === 'End') { e.preventDefault(); dismissIntro(false); const n = SECTIONS.length - 1; window.scrollTo(0, n * innerHeight); go(n); }
+    else if (e.key === 'End') { e.preventDefault(); dismissIntro(false); jumpTo(SECTIONS.length - 1); }
     else if (e.key === 'Escape') deselect();
     else if (e.key === 'Enter' && introOn) dismissIntro(false);
   });
@@ -424,17 +492,24 @@ export async function initOnto(opts = {}) {
   let rz = 0;
   addEventListener('resize', () => {
     clearTimeout(rz);
-    rz = setTimeout(() => { if (!paused && current >= 0) go(current, { instant: true }); }, 160);
+    rz = setTimeout(() => {
+      if (paused) return;
+      computeFrameD();
+      if (introOn) { const f = heroFrame(); G.cameraPosition(f.pos, f.look, 0); return; }
+      reframe(current);
+    }, 160);
   });
 
   /* ── boot: intro or dashboard ─────────────────────────────────── */
-  const hero = (() => {
+  computeFrameD();
+  function heroFrame() {
     const aspect = Math.max(0.3, innerWidth / innerHeight);
     const tan = Math.tan(((camera.fov || 42) * Math.PI) / 360);
     const [iw, ih] = DIM.intro;
     const d = Math.max((ih * 1.22) / (2 * tan), (iw * 1.12) / (2 * tan * aspect));
     return { pos: { x: 0, y: 160 + d * 0.16, z: 280 + d }, look: { x: 0, y: 160, z: 280 } };
-  })();
+  }
+  const hero = heroFrame();
   G.cameraPosition(hero.pos, hero.look, 0);
   updateBar(0);
   const seen = (() => { try { return localStorage.getItem(INTRO_KEY) === '1'; } catch (e) { return false; } })();
@@ -443,9 +518,7 @@ export async function initOnto(opts = {}) {
     introMesh.visible = false;
     barMesh.visible = true;
     introOn = false;
-    const i = linked;
-    window.scrollTo(0, i * innerHeight);
-    go(i, { instant: true });
+    jumpTo(linked);
   } else {
     introOn = true;
     introMesh.visible = true;
@@ -461,8 +534,7 @@ export async function initOnto(opts = {}) {
       introMesh.visible = false;
       barMesh.visible = true;
     }
-    window.scrollTo(0, i * innerHeight);
-    go(i);
+    jumpTo(i);
   });
 
   /* ── public API (WebMCP) ──────────────────────────────────────── */
@@ -480,7 +552,7 @@ export async function initOnto(opts = {}) {
       if (introOn) { introOn = false; introMesh.visible = false; barMesh.visible = true; go(0, { instant: true }); }
       if (section) {
         const i = SECTIONS.indexOf(section);
-        if (i >= 0) { window.scrollTo(0, i * innerHeight); go(i); }
+        if (i >= 0) jumpTo(i);
       }
       return api.state();
     },
@@ -494,13 +566,12 @@ export async function initOnto(opts = {}) {
         || NODES.find((x) => `${x.desc || ''} ${x.quote || ''}`.toLowerCase().includes(q));
       if (!n) {
         const si = SECTIONS.findIndex((s) => s === q || s.includes(q));
-        if (si >= 0) { window.scrollTo(0, si * innerHeight); go(si); return { ok: true, section: SECTIONS[si], station: si }; }
+        if (si >= 0) { jumpTo(si); return { ok: true, section: SECTIONS[si], station: si }; }
         return { ok: false, note: `no node or chapter matches "${target}"` };
       }
       if (introOn) { introOn = false; introMesh.visible = false; }
       const si = stationOf(n);
-      window.scrollTo(0, si * innerHeight);
-      if (current !== si) go(si);
+      jumpTo(si);
       select(n);
       return { ok: true, node: n.id, label: n.label, class: n.cls, station: si, section: SECTIONS[si] };
     },
@@ -516,7 +587,7 @@ export async function initOnto(opts = {}) {
       if (preset === 'overview') { G.cameraPosition({ x: 0, y: 620, z: 1350 }, { x: 0, y: 120, z: -900 }, 1100); return true; }
       if (preset) {
         const i = SECTIONS.indexOf(preset);
-        if (i >= 0) { window.scrollTo(0, i * innerHeight); go(i); return true; }
+        if (i >= 0) { jumpTo(i); return true; }
       }
       if (typeof x === 'number' && typeof y === 'number' && typeof z === 'number') {
         G.cameraPosition({ x, y, z }, { x: lookX ?? 0, y: lookY ?? 0, z: lookZ ?? 0 }, 0);
@@ -529,8 +600,8 @@ export async function initOnto(opts = {}) {
     renderAt({ t } = {}) {
       const n = SECTIONS.length;
       const idx = typeof t === 'number' ? (t <= 1 ? Math.round(t * (n - 1)) : clamp(Math.round(t), 0, n - 1)) : (current < 0 ? 0 : current);
-      if (current !== idx) go(idx, { instant: true });
-      else { const f = frameFor(idx); G.cameraPosition(f.pos, f.look, 0); }
+      if (current !== idx) go(idx);
+      else reframe(idx);
       G.renderOnce(typeof t === 'number' ? t * 9 + 3 : 6);
       return api.state();
     },

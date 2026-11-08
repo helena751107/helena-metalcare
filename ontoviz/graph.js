@@ -161,7 +161,7 @@ export async function createGraph(container, data, opts = {}) {
   // ── 카메라 트윈 · 화면 맞춤
   let tw = null;
   function cameraPosition(pos, look, ms = 1000) { if (!pos) return camera.position; const from = camera.position.clone(), ft = controls.target.clone(), to = new THREE.Vector3(pos.x, pos.y, pos.z), tt = look ? new THREE.Vector3(look.x, look.y, look.z) : ft.clone();
-    if (!ms) { camera.position.copy(to); controls.target.copy(tt); controls.update(); return G; } tw = { from, ft, to, tt, t0: performance.now(), ms }; return G; }
+    if (!ms) { tw = null; camera.position.copy(to); controls.target.copy(tt); controls.update(); return G; } tw = { from, ft, to, tt, t0: performance.now(), ms }; return G; }
   function zoomToFit(ms = 1000, pad = 40, filter = () => true) { const pts = nodes.filter((n) => acc.nodeVisibility(n) && filter(n)); if (!pts.length) return G;
     const c = new THREE.Vector3(); pts.forEach((n) => c.add(V3.set(n.x, n.y, n.z))); c.divideScalar(pts.length); let r = 0; pts.forEach((n) => (r = Math.max(r, V3.set(n.x, n.y, n.z).distanceTo(c))));
     const dir = camera.position.clone().sub(controls.target).normalize(), dist = (r + pad) / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) * (camera.aspect < 1 ? 1.25 : 0.85);

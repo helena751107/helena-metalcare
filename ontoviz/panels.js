@@ -303,8 +303,8 @@ export function dashboardTexture({ stats, legend, modes, mode, narrow = false })
   button(x, P, y, bw, bh, 'Start with Pillars →', { solid: true });
   hotspots.push({ x: P, y, w: bw, h: bh, action: { type: 'goto', id: 'pillars' } });
   if (narrow) {
-    button(x, P, y + 82, 290, bh, 'Read as text', { solid: false });
-    hotspots.push({ x: P, y: y + 82, w: 290, h: bh, action: { type: 'reader', id: 'cover' } });
+    button(x, P, y + 82, bw, bh, 'Read as text', { solid: false });
+    hotspots.push({ x: P, y: y + 82, w: bw, h: bh, action: { type: 'reader', id: 'cover' } });
   } else {
     button(x, P + 398, y, 300, bh, 'Read as text', { solid: false });
     hotspots.push({ x: P + 398, y, w: 300, h: bh, action: { type: 'reader', id: 'cover' } });
@@ -322,7 +322,7 @@ export function dashboardTexture({ stats, legend, modes, mode, narrow = false })
 
 /* ── intro panel ────────────────────────────────────────────────── */
 export function introTexture(narrow = false) {
-  const W = narrow ? 760 : 1280, H = narrow ? 1000 : 760, P = narrow ? 56 : 86;
+  const W = narrow ? 760 : 1280, H = narrow ? 1000 : 840, P = narrow ? 56 : 86;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const x = c.getContext('2d');
@@ -341,12 +341,12 @@ export function introTexture(narrow = false) {
   x.fillStyle = '#b9ad9d';
   sub.lines.forEach((line, i) => x.fillText(line, P, (narrow ? 420 : 486) + i * sub.step));
 
-  const by = narrow ? 640 : 606;
+  const by = narrow ? 640 : 630;
   button(x, P, by, narrow ? 320 : 300, narrow ? 68 : 76, 'Enter the map', { solid: true });
   hotspots.push({ x: P, y: by, w: narrow ? 320 : 300, h: narrow ? 68 : 76, action: { type: 'enter' } });
   if (narrow) {
-    button(x, P, by + 84, 280, 68, 'Read as text', { solid: false });
-    hotspots.push({ x: P, y: by + 84, w: 280, h: 68, action: { type: 'reader', id: 'cover' } });
+    button(x, P, by + 84, 320, 68, 'Read as text', { solid: false });
+    hotspots.push({ x: P, y: by + 84, w: 320, h: 68, action: { type: 'reader', id: 'cover' } });
   } else {
     button(x, P + 318, by, 250, 76, 'Read as text', { solid: false });
     hotspots.push({ x: P + 318, y: by, w: 250, h: 76, action: { type: 'reader', id: 'cover' } });
@@ -355,7 +355,7 @@ export function introTexture(narrow = false) {
   x.fillStyle = 'rgba(169,157,140,.6)';
   x.font = `400 ${narrow ? 15 : 18}px ${MONO}`;
   if ('letterSpacing' in x) x.letterSpacing = '2px';
-  x.fillText('NOT MEDICAL ADVICE · 119 · 112 · LOCAL CRISIS LINE', P, narrow ? 910 : 716);
+  x.fillText('NOT MEDICAL ADVICE · 119 · 112 · LOCAL CRISIS LINE', P, narrow ? 910 : 796);
   if ('letterSpacing' in x) x.letterSpacing = '0px';
   return { canvas: c, hotspots, w: W, h: H };
 }
@@ -448,40 +448,41 @@ export function barTexture({ current, label, narrow = false }) {
   const n = 8;
   if (narrow) {
     x.fillStyle = 'rgba(169,157,140,.82)';
-    x.font = `400 22px ${MONO}`;
+    x.font = `400 21px ${MONO}`;
     if ('letterSpacing' in x) x.letterSpacing = '2px';
-    x.fillText('DRAG', 30, 88);
-    x.fillText('SCROLL', 30, 122);
-    x.fillStyle = 'rgba(244,239,230,.9)';
-    x.font = `600 27px ${SERIF}`;
-    x.textAlign = 'right';
-    x.fillText(String(label || ''), 728, 92);
-    x.fillStyle = 'rgba(169,157,140,.6)';
-    x.font = `400 16px ${MONO}`;
-    x.fillText(`${String(current).padStart(2, '0')} / 07`, 728, 124);
-    x.textAlign = 'left';
+    x.fillText('DRAG · SCROLL · CLICK', 30, 86);
     if ('letterSpacing' in x) x.letterSpacing = '0px';
 
-    const x0 = 292, step = 52;
+    x.fillStyle = 'rgba(244,239,230,.92)';
+    x.font = `600 30px ${SERIF}`;
+    x.textAlign = 'right';
+    x.fillText(String(label || ''), 730, 84);
+    x.fillStyle = 'rgba(169,157,140,.6)';
+    x.font = `400 16px ${MONO}`;
+    x.fillText(`${String(current).padStart(2, '0')} / 07`, 730, 114);
+    x.textAlign = 'left';
+
+    const x0 = 100, step = 60;
     for (let i = 0; i < n; i++) {
-      const cx = x0 + i * step, cy = 148, on = i === current;
+      const cx = x0 + i * step, cy = 182, on = i === current;
       if (on) { x.beginPath(); x.arc(cx, cy, 15, 0, Math.PI * 2); x.strokeStyle = 'rgba(212,168,75,.55)'; x.lineWidth = 2; x.stroke(); }
       x.beginPath(); x.arc(cx, cy, on ? 9 : 6, 0, Math.PI * 2);
       x.fillStyle = on ? '#f0c75e' : 'rgba(244,239,230,.32)'; x.fill();
       x.font = `400 15px ${MONO}`; x.textAlign = 'center';
       x.fillStyle = on ? 'rgba(240,199,94,.95)' : 'rgba(169,157,140,.5)';
-      x.fillText(i === 0 ? '00' : String(i).padStart(2, '0'), cx, 192);
+      x.fillText(i === 0 ? '00' : String(i).padStart(2, '0'), cx, 222);
       x.textAlign = 'left';
-      hotspots.push({ x: cx - 23, y: 112, w: 46, h: 92, action: { type: 'station', i } });
+      hotspots.push({ x: cx - 24, y: 148, w: 48, h: 92, action: { type: 'station', i } });
     }
-    rr(x, 610, 208, 120, 50, 4);
+
+    rr(x, 604, 156, 126, 52, 4);
     x.fillStyle = 'rgba(9,8,7,.5)'; x.fill();
     x.strokeStyle = 'rgba(244,239,230,.3)'; x.lineWidth = 2; x.stroke();
     x.fillStyle = 'rgba(216,203,184,.95)';
     x.font = `500 19px ${MONO}`; x.textAlign = 'center';
-    x.fillText('TEXT', 670, 240);
+    x.fillText('TEXT', 667, 189);
     x.textAlign = 'left';
-    hotspots.push({ x: 610, y: 208, w: 120, h: 50, action: { type: 'reader', id: null } });
+    hotspots.push({ x: 604, y: 156, w: 126, h: 52, action: { type: 'reader', id: null } });
   } else {
     x.fillStyle = 'rgba(169,157,140,.82)';
     x.font = `400 24px ${MONO}`;
