@@ -50,7 +50,10 @@ export async function initOnto(opts = {}) {
   const touch = matchMedia('(pointer: coarse)').matches;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const sections = readSections();
-  const startReader = params.has('text') || params.get('mode') === 'reader' || localStorage.getItem(MODE_KEY) === 'reader';
+  /* The landing page always boots in 3D. Text mode is an explicit, visible
+     choice (?text), never a stored flag that quietly hides the whole map on
+     the next visit. */
+  const startReader = params.has('text') || params.get('mode') === 'reader';
   const narrow = innerWidth / innerHeight < 0.9;
   const DIM = narrow
     ? { ch: [240, 474], dash: [240, 442], intro: [280, 368], ins: [240, 310], bar: [240, 88.5] }
@@ -94,7 +97,7 @@ export async function initOnto(opts = {}) {
   const stationY = (i) => Math.round(i * stepPx());
 
   /* ── ontology layout → station coordinates ─────────────────────── */
-  const P = layoutPositions(sections);
+  const P = layoutPositions(sections, narrow);
   const glNodes = NODES.map((n) => ({ ...n, x: P.get(n.id).x, y: P.get(n.id).y, z: P.get(n.id).z }));
   const glLinks = LINKS.map((l) => ({ source: l.source, target: l.target, rel: l.rel }));
 
@@ -125,10 +128,14 @@ export async function initOnto(opts = {}) {
   let mode = 'all';
 
   const dimOf = (n) => { const m = MODES[mode]; return !m.cls || m.cls.includes(n.cls) ? 1 : 0; };
-  const big = (n) => (n.id === 'care' ? 15 : n.id.startsWith('ch.') ? 10.5 : (4.6 + Math.sqrt(n.val || 1) * 2.2) * (n.chapter ? 1.85 : 1));
+  const RINGCOL = {
+    'ch.pillars': '#f0c75e', 'ch.map': '#3db8a8', 'ch.method': '#d4a84b',
+    'ch.levels': '#ff7a6a', 'ch.channels': '#3db8a8', 'ch.boundary': '#8b7cf0', 'ch.install': '#f0c75e'
+  };
+  const big = (n) => (n.id === 'care' ? 26 : n.id.startsWith('ch.') ? 22 : (4.6 + Math.sqrt(n.val || 1) * 2.2) * (n.chapter ? 1.85 : 1));
 
   function applyStyle() {
-    G.nodeColor((n) => COL[n.s])
+    G.nodeColor((n) => RINGCOL[n.id] || COL[n.s])
       .nodeAlpha((n) => (dimOf(n) ? (n.id === 'care' ? 0.96 : 0.9) : 0.1))
       .nodeSize((n) => big(n) * (dimOf(n) ? 1 : 0.5))
       .nodeHot((n) => (/worsening|emergency/.test(n.id) ? 1 : 0))
@@ -349,11 +356,13 @@ export async function initOnto(opts = {}) {
   }
 
   function enterReader(secId) {
-    try { localStorage.setItem(MODE_KEY, 'reader'); } catch (e) {}
+    try { localStorage.removeItem(MODE_KEY); } catch (e) {}
     html.removeAttribute('data-onto');
+    try { history.replaceState(null, '', location.pathname + '?text' + (SECTIONS.includes(secId) ? '#' + secId : '')); } catch (e) {}
     root.style.display = 'none';
     G.pause(true);
     paused = true;
+    backTo3D();
     const id = SECTIONS.includes(secId) ? secId : SECTIONS[Math.max(0, current)] || 'cover';
     const el = document.getElementById(id);
     if (el) {
@@ -506,7 +515,10 @@ export async function initOnto(opts = {}) {
     const aspect = Math.max(0.3, innerWidth / innerHeight);
     const tan = Math.tan(((camera.fov || 42) * Math.PI) / 360);
     const [iw, ih] = DIM.intro;
-    const d = Math.max((ih * 1.22) / (2 * tan), (iw * 1.12) / (2 * tan * aspect));
+    /* wide screens pull back a little so the crown of glows reads around the
+       card; portrait keeps the card filling the frame */
+    const k = narrow ? 1 : 1.3;
+    const d = Math.max((ih * 1.22 * k) / (2 * tan), (iw * 1.12 * k) / (2 * tan * aspect));
     return { pos: { x: 0, y: 160 + d * 0.16, z: 280 + d }, look: { x: 0, y: 160, z: 280 } };
   }
   const hero = heroFrame();
@@ -670,14 +682,27 @@ function cleanTitle(s) {
 }
 
 /* ── layout: crown of chapters at station 0, one constellation per station ── */
-function layoutPositions(sections) {
+function layoutPositions(sections, narrow) {
   const P = new Map();
-  P.set('care', { x: 0, y: 560, z: -190 });
   const chapters = ['ch.pillars', 'ch.map', 'ch.method', 'ch.levels', 'ch.channels', 'ch.boundary', 'ch.install'];
-  chapters.forEach((id, k) => {
-    const a = Math.PI * (0.1 + (0.8 * k) / (chapters.length - 1));
-    P.set(id, { x: Math.cos(a) * 520, y: 360 + Math.sin(a) * 220, z: -270 - (k % 2) * 80 });
-  });
+  if (narrow) {
+    /* tall screen: the card fills the frame, so the crown arcs above it */
+    P.set('care', { x: 0, y: 560, z: -190 });
+    chapters.forEach((id, k) => {
+      const a = Math.PI * (0.1 + (0.8 * k) / (chapters.length - 1));
+      P.set(id, { x: Math.cos(a) * 520, y: 360 + Math.sin(a) * 220, z: -270 - (k % 2) * 80 });
+    });
+  } else {
+    /* wide screen: the crown floats in front of the cover card, so the first
+       screen has real depth — big glows, parallax, links running past the
+       panel — instead of a card on black. */
+    P.set('care', { x: -420, y: 210, z: 200 });
+    const ring = [
+      [350, 60, 220], [415, 165, 190], [368, 285, 235], [250, 390, 205],
+      [-330, 350, 225], [-430, 250, 195], [-370, 120, 230]
+    ];
+    chapters.forEach((id, k) => P.set(id, { x: ring[k][0], y: ring[k][1], z: ring[k][2] }));
+  }
   sections.forEach((s, i) => {
     if (!i) return;
     const z = zOf(i);
@@ -697,6 +722,23 @@ function layoutPositions(sections) {
 }
 
 /* ── reader-mode API (3D not started) ───────────────────────────── */
+/* Text mode must never be a one-way door: one visible pill always leads back
+   to the WebGPU map. */
+function backTo3D() {
+  if (document.getElementById('ontoBack')) return;
+  const a = document.createElement('a');
+  a.id = 'ontoBack';
+  a.href = location.pathname + (location.hash || '#cover');
+  a.setAttribute('aria-label', 'Open the interactive 3D map');
+  a.innerHTML = '<span aria-hidden="true">◈</span> Open the 3D map';
+  a.style.cssText =
+    'position:fixed;right:16px;bottom:16px;z-index:99999;display:inline-flex;align-items:center;gap:9px;' +
+    'padding:13px 19px;border-radius:999px;background:#0a0908;border:1px solid rgba(212,168,75,.6);' +
+    'color:#f0c75e;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em;' +
+    'text-transform:uppercase;text-decoration:none;box-shadow:0 12px 34px rgba(0,0,0,.65)';
+  document.body.appendChild(a);
+}
+
 function stubApi(sections, html) {
   const state = () => ({
     mode: html.getAttribute('data-onto') === 'on' ? 'ontology' : 'reader',
@@ -704,9 +746,10 @@ function stubApi(sections, html) {
     station: -1, backend: null, nodes: NODES.length, relations: LINKS.length,
     selected: null, filter: 'all', intro: false, paused: true, fps: 0
   });
+  backTo3D();
   return {
     enter() {
-      try { localStorage.setItem(MODE_KEY, 'ontology'); } catch (e) {}
+      try { localStorage.removeItem(MODE_KEY); } catch (e) {}
       location.replace(location.pathname + (location.hash || '#cover'));
       return state();
     },
