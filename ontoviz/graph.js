@@ -10,21 +10,26 @@ const C = new THREE.Color();
 const rgba = (hex, a = 1) => { C.set(hex); return [C.r, C.g, C.b, a]; };
 
 export async function createGraph(container, data, opts = {}) {
-  const low = opts.low ?? ((navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4 || matchMedia("(pointer: coarse)").matches);
+  /* 저사양 판정은 정말 느린 기기만 잡는다 — 화면 품질은 기본으로 끝까지 올리고,
+     프레임이 실제로 버티지 못할 때만 런타임에 한 단계씩 내린다(아래 qStep). */
+  const low = opts.low ?? ((navigator.deviceMemory || 8) <= 2 || (navigator.hardwareConcurrency || 8) <= 2);
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const G = {}; // 공개 API 객체(아래에서 채움)
   const forceGL = /[?&]gl=1/.test(location.search) || sessionStorage.getItem("hmc_gl") === "1";
-  const renderer = new THREE.WebGPURenderer({ antialias: !low, alpha: false, forceWebGL: forceGL });
+  // ?hq=1 — 적응형 하향을 끄고 항상 기기 픽셀(최대 2배)로 그린다(수동 화질 고정)
+  const HQ = /[?&]hq=1/.test(location.search);
+  const renderer = new THREE.WebGPURenderer({ antialias: true, alpha: false, forceWebGL: forceGL });
   await renderer.init();
   const GPU = !!renderer.backend.isWebGPUBackend;
   // GPU 장치 상실(드라이버 리셋 · 과부하) → 이 세션은 WebGL2 경로로 다시 시작
   if (GPU && renderer.backend.device?.lost) renderer.backend.device.lost.then((info) => { if (info.reason === "destroyed") return; sessionStorage.setItem("hmc_gl", "1"); location.reload(); });
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, low ? 1 : 1.5));
+  // 기기 픽셀 그대로(최대 2배) — 이전에는 1배로 그려 브라우저가 늘려 붙여서 글자가 흐릿했다
+  renderer.setPixelRatio(HQ ? 2 : Math.min(devicePixelRatio || 1, 2));
   renderer.setClearColor(0x000000, 1);
   container.append(renderer.domElement);
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(42, 1, 1, 8000);
   camera.position.set(0, 120, 1100);
-  const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.enableZoom = false; controls.enablePan = false; controls.autoRotate = !reduce; controls.autoRotateSpeed = 0.45;
+  const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.enableZoom = false; controls.enablePan = false; controls.autoRotate = false; controls.autoRotateSpeed = 0.45;
 
   // ── 데이터
   const nodes = data.nodes, N = nodes.length, byId = new Map(nodes.map((n, i) => [n.id, i]));
@@ -116,9 +121,9 @@ export async function createGraph(container, data, opts = {}) {
   lm.opacityNode = ec.a.add(pulse.mul(0.8)).min(1);
   const lines = new THREE.LineSegments(eg, lm); lines.frustumCulled = false; scene.add(lines);
 
-  // ── 후처리: 블룸(저사양이면 끔)
+  // ── 후처리: 블룸(기본 켜짐 · 프레임이 버티지 못하면 런타임에 끔)
   let post = null;
-  if (!low) { try { const { bloom } = await import("three/addons/tsl/display/BloomNode.js"); post = new THREE.PostProcessing(renderer); const sp = pass(scene, camera); post.outputNode = sp.add(bloom(sp, 0.75, 0.45, 0.18)); } catch (e) { post = null; } }
+  try { const { bloom } = await import("three/addons/tsl/display/BloomNode.js"); post = new THREE.PostProcessing(renderer); const sp = pass(scene, camera); post.outputNode = sp.add(bloom(sp, 0.7, 0.5, 0.95)); } catch (e) { post = null; }
 
   // ── 스타일(접근자) — 바뀔 때만 버퍼 갱신
   const acc = {
@@ -169,6 +174,15 @@ export async function createGraph(container, data, opts = {}) {
 
   // ── 루프
   let last = performance.now(), frames = 0, fps = 0, ft = last, simT = 0;
+  /* 적응형 품질: 8초 워밍업 뒤에도 34fps를 못 넘기면 2배 → 1.5배 → 블룸 끔 →
+     1배 순서로만 양보한다. 화질이 기본값이고, 느린 기기만 한 단계씩 내려간다. */
+  const bootAt = last; let fails = 0;
+  function qStep() {
+    const pr = renderer.getPixelRatio();
+    if (pr > 1.51) { renderer.setPixelRatio(1.5); size(); }
+    else if (post) post = null;
+    else if (pr > 1.01) { renderer.setPixelRatio(1); size(); }
+  }
   function frame() {
     const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (tw) { const k = Math.min(1, (now - tw.t0) / tw.ms), e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; camera.position.lerpVectors(tw.from, tw.to, e); controls.target.lerpVectors(tw.ft, tw.tt, e); if (k >= 1) tw = null; }
@@ -177,7 +191,8 @@ export async function createGraph(container, data, opts = {}) {
     if (GPU) { renderer.compute(step); U.kick.value = -1; } else stepCPU();
     mirror(now);
     post ? post.render() : renderer.render(scene, camera);
-    frames++; if (now - ft > 1000) { fps = Math.round((frames * 1000) / (now - ft)); frames = 0; ft = now; }
+    frames++; if (now - ft > 1000) { fps = Math.round((frames * 1000) / (now - ft)); frames = 0; ft = now;
+      if (!HQ && now - bootAt > 8000) { fails = fps < 34 ? fails + 1 : 0; if (fails >= 3) { fails = 0; qStep(); } } }
   }
   const size = () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.85 ? 56 : 42; camera.updateProjectionMatrix(); G._offset && G._offset(); };
   addEventListener("resize", size); size();
